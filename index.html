@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kalkulator Hemat Energi</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#f4f8f4;--card:#fff;--tx:#14211a;--mu:#5b6a60;--ac:#1c8a4a;--ac2:#e3f3e8;--bd:#d9e4db;--wa:#d97a1f}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e1612;--card:#17221c;--tx:#e6f0e9;--mu:#9bb0a2;--ac:#4cc27c;--ac2:#1d3226;--bd:#27382e;--wa:#f0a050}}
+:root[data-theme="dark"]{--bg:#0e1612;--card:#17221c;--tx:#e6f0e9;--mu:#9bb0a2;--ac:#4cc27c;--ac2:#1d3226;--bd:#27382e;--wa:#f0a050}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:760px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:22px;margin:0 0 4px}h2{font-size:16px;margin:0 0 10px}
+.sub{color:var(--mu);margin:0 0 18px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px;margin-bottom:14px}
+label{display:block;font-size:12px;color:var(--mu)}
+input{width:100%;margin-top:3px;padding:8px 10px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--tx);font:inherit}
+input:focus{outline:2px solid var(--ac);outline-offset:0}
+.set{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip,.btn{border:1px solid var(--bd);background:var(--ac2);color:var(--tx);border-radius:999px;padding:6px 12px;font:inherit;font-size:13px;cursor:pointer}
+.btn{background:var(--ac);color:#fff;border:0;border-radius:10px;padding:9px 14px;margin-top:6px}
+.row{display:grid;grid-template-columns:2fr 1fr 1fr 1fr auto;gap:8px;align-items:end;padding:10px 0;border-top:1px solid var(--bd)}
+.row:first-child{border-top:0}
+.x{border:0;background:none;color:var(--mu);font-size:22px;cursor:pointer;padding:4px 8px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.stat{background:var(--ac2);border-radius:12px;padding:12px}
+.stat b{display:block;font-size:20px}.stat span{font-size:12px;color:var(--mu)}
+.rk{margin:10px 0}.rk .t{display:flex;justify-content:space-between;font-size:13px;gap:8px}
+.bar{height:8px;background:var(--ac2);border-radius:6px;overflow:hidden;margin-top:4px}
+.bar i{display:block;height:100%;background:var(--ac)}
+.rk.top .bar i{background:var(--wa)}
+.tip{border-left:4px solid var(--wa);padding:8px 12px;background:var(--ac2);border-radius:0 10px 10px 0;margin-top:10px}
+.note{font-size:12px;color:var(--mu)}
+@media(max-width:560px){.row{grid-template-columns:1fr 1fr 1fr}.row .n{grid-column:1/-1}.row .x{grid-column:3;justify-self:end}.set,.stats{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<main>
+<h1>⚡ Kalkulator Hemat Energi</h1>
+<p class="sub">Masukkan alat listrik di rumah atau kos, lihat estimasi pemakaian, biaya, dan alat paling boros.</p>
+
+<section class="card">
+<h2>Pengaturan</h2>
+<div class="set">
+<label>Tarif listrik (Rp/kWh)<input id="tarif" type="number" min="0" step="any"></label>
+<label>Hari pemakaian/bulan<input id="hari" type="number" min="1" max="31"></label>
+<label>Emisi (kg CO₂/kWh)<input id="ef" type="number" min="0" step="any"></label>
+</div>
+</section>
+
+<section class="card">
+<h2>Daftar alat listrik</h2>
+<div class="chips" id="presets"></div>
+<div id="rows"></div>
+<button class="btn" id="add">+ Tambah alat manual</button>
+</section>
+
+<section class="card" id="res"></section>
+
+<p class="note">Estimasi saja. Tarif bawaan mengikuti perkiraan tarif rumah tangga; cek angka di tagihan atau token kamu. Alat bersiklus seperti kulkas dan AC dihitung dengan jam efektif (waktu kompresor benar-benar menyala), jadi isi jam sesuai perkiraan itu. Faktor emisi adalah perkiraan rata-rata jaringan listrik Indonesia.</p>
+</main>
+<script>
+const $=s=>document.querySelector(s);
+const fmt=(n,d=0)=>n.toLocaleString('id-ID',{maximumFractionDigits:d,minimumFractionDigits:d});
+const rp=n=>'Rp'+fmt(Math.round(n));
+const PRE=[['Lampu LED',10,4,5],['Kipas angin',50,1,8],['AC 1 PK',800,1,8],['Kulkas',100,1,10],['TV',80,1,4],['Laptop',60,1,6],['Charger HP',10,1,3],['Rice cooker',400,1,2],['Dispenser',350,1,3],['Setrika',350,1,1],['Mesin cuci',400,1,1]];
+let S={tarif:1444.7,hari:30,ef:0.87,items:[{nama:'Lampu LED',watt:10,qty:3,jam:6},{nama:'Kipas angin',watt:50,qty:1,jam:8},{nama:'Laptop',watt:60,qty:1,jam:6},{nama:'Kulkas',watt:100,qty:1,jam:10}]};
+try{const j=localStorage.getItem('hemat-energi');if(j){const p=JSON.parse(j);if(p&&Array.isArray(p.items))S=Object.assign(S,p)}}catch(e){}
+function save(){try{localStorage.setItem('hemat-energi',JSON.stringify(S))}catch(e){}}
+
+['tarif','hari','ef'].forEach(k=>{const el=$('#'+k);el.value=S[k];el.oninput=()=>{S[k]=parseFloat(el.value)||0;calc()}});
+
+PRE.forEach(p=>{const b=document.createElement('button');b.className='chip';b.textContent='+ '+p[0];b.onclick=()=>{S.items.push({nama:p[0],watt:p[1],qty:p[2],jam:p[3]});rows();calc()};$('#presets').appendChild(b)});
+$('#add').onclick=()=>{S.items.push({nama:'',watt:0,qty:1,jam:1});rows();calc()};
+
+function rows(){
+  const box=$('#rows');box.innerHTML='';
+  S.items.forEach((it,i)=>{
+    const d=document.createElement('div');d.className='row';
+    d.innerHTML='<label class="n">Nama alat<input data-k="nama"></label><label>Daya (W)<input type="number" min="0" data-k="watt"></label><label>Jumlah<input type="number" min="0" data-k="qty"></label><label>Jam/hari<input type="number" min="0" max="24" step="0.5" data-k="jam"></label><button class="x" aria-label="Hapus alat">×</button>';
+    d.querySelectorAll('input').forEach(inp=>{const k=inp.dataset.k;inp.value=it[k];inp.oninput=()=>{it[k]=k==='nama'?inp.value:(parseFloat(inp.value)||0);calc()}});
+    d.querySelector('.x').onclick=()=>{S.items.splice(i,1);rows();calc()};
+    box.appendChild(d);
+  });
+}
+
+function calc(){
+  save();
+  const res=$('#res');res.innerHTML='';
+  const list=S.items.map(it=>({n:it.nama||'(tanpa nama)',k:it.watt*it.qty*it.jam/1000*S.hari,perJam:it.watt*it.qty/1000*S.hari,jam:it.jam})).sort((a,b)=>b.k-a.k);
+  const tot=list.reduce((a,b)=>a+b.k,0);
+  const h=document.createElement('h2');h.textContent='Hasil estimasi per bulan';res.appendChild(h);
+  if(tot<=0){const p=document.createElement('p');p.className='note';p.textContent='Tambahkan alat dan isi daya serta jam pakainya untuk melihat hasil.';res.appendChild(p);return}
+  const st=document.createElement('div');st.className='stats';
+  [[fmt(tot,1)+' kWh','Pemakaian listrik'],[rp(tot*S.tarif),'Perkiraan biaya'],[fmt(tot*S.ef,1)+' kg CO₂','Jejak karbon']].forEach(x=>{const s=document.createElement('div');s.className='stat';const b=document.createElement('b');b.textContent=x[0];const sp=document.createElement('span');sp.textContent=x[1];s.append(b,sp);st.appendChild(s)});
+  res.appendChild(st);
+  const h3=document.createElement('h2');h3.style.marginTop='16px';h3.textContent='Alat paling boros';res.appendChild(h3);
+  list.forEach((x,i)=>{
+    const r=document.createElement('div');r.className='rk'+(i===0?' top':'');
+    const t=document.createElement('div');t.className='t';
+    const a=document.createElement('span');a.textContent=(i+1)+'. '+x.n;
+    const b=document.createElement('span');b.textContent=fmt(x.k/tot*100)+'% · '+fmt(x.k,1)+' kWh · '+rp(x.k*S.tarif);
+    t.append(a,b);
+    const bar=document.createElement('div');bar.className='bar';const f=document.createElement('i');f.style.width=(x.k/list[0].k*100)+'%';bar.appendChild(f);
+    r.append(t,bar);res.appendChild(r);
+  });
+  const top=list[0];const hemat=Math.min(1,top.jam)*top.perJam*S.tarif;
+  const tip=document.createElement('div');tip.className='tip';
+  tip.textContent='Tips: '+top.n+' menyumbang '+fmt(top.k/tot*100)+'% dari total. Mengurangi pemakaiannya 1 jam per hari bisa menghemat sekitar '+rp(hemat)+' per bulan. Cabut charger dan alat yang tidak dipakai agar daya siaga (standby) tidak terbuang.';
+  res.appendChild(tip);
+}
+rows();calc();
+</script>
+</body>
+</html>
